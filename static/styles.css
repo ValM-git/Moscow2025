@@ -1,0 +1,218 @@
+:root{
+  --bg:#f5f7fb; --card:#fff; --border:#e6e8ef; --text:#101828; --muted:#667085;
+  --ok:#16a34a; --warn:#b45309; --danger:#dc2626
+}
+*{box-sizing:border-box}
+body{
+  margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;
+  color:var(--text); background:var(--bg)
+}
+.container{max-width:1100px;margin:0 auto;padding:0 16px}
+.header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border)}
+.header-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{font-weight:600}
+.nav .btn{margin-left:8px}
+.main{padding:16px 0 40px}
+.footer{border-top:1px solid var(--border);padding:16px 0;color:var(--muted);text-align:center;background:#fff}
+
+h2{margin:8px 0 12px 0}
+h3{margin:0 0 8px 0}
+.subtitle{font-weight:600;margin-bottom:8px}
+.muted{color:var(--muted);font-size:13px}
+
+/* buttons */
+.btn{
+  display:inline-block;padding:8px 12px;border-radius:10px;border:1px solid var(--border);
+  text-decoration:none;color:var(--text);background:#fff;cursor:pointer;transition:all .15s
+}
+.btn:hover{background:#f8fafc}
+.btn-primary{background:#111827;color:#fff;border-color:#111827}
+.btn-primary:hover{opacity:.9}
+.btn-outline{background:#fff}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.btn-danger:hover{background:#fef2f2}
+
+/* badges */
+.badge{padding:3px 8px;border-radius:999px;font-size:12px}
+.badge.ok{background:#dcfce7;color:var(--ok)}
+.badge.warn{background:#fef3c7;color:var(--warn)}
+
+/* cards & layout */
+.card{
+  background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:12px;
+  overflow:visible; /* важно: не скрываем нативный UI инпутов */
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.grid-list.wide-cards{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+.grid-list.onecol{grid-template-columns:1fr} /* одноколоночный режим для ровного выравнивания */
+.row{display:flex;align-items:center;justify-content:space-between}
+.list{display:grid;gap:4px;margin-top:8px}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+
+/* панель действий: поиск + добавить */
+.tools-actions .actions-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tools-actions .search-wrap{display:flex;align-items:center;gap:8px;flex:1}
+.tools-actions .search-wrap input[type=text]{flex:1;border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+.tools-actions .add-wrap{white-space:nowrap}
+
+/* карточки типов/инструментов */
+.tool{display:flex;gap:12px;align-items:center}
+.thumb{
+  width:140px;height:110px;border:1px dashed var(--border);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fafafa
+}
+.thumb.big{width:180px;height:140px}
+.thumb img{width:100%;height:100%;object-fit:contain}
+.thumb-empty{color:#94a3b8;font-size:12px}
+.tool-info .title{font-weight:600}
+
+/* галерея фото в заявках */
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
+.thumbs img{width:100%;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+
+/* flash */
+.flash-wrap{display:grid;gap:8px;margin-bottom:8px}
+.flash{padding:10px 12px;border-radius:12px;font-size:14px}
+.flash.ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+.flash.error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+
+/* dialog (modal) */
+dialog{border:none;border-radius:16px;padding:0;max-width:620px;width:96%;box-shadow:0 20px 60px rgba(16,24,40,.18)}
+dialog::backdrop{background:rgba(16,24,40,.35)}
+.modal-card{margin:0;border:none}
+.modal-title{font-size:18px;font-weight:600;margin-bottom:8px}
+
+/* строки в модалке добавления экземпляров */
+.items-container{display:grid;gap:8px;margin:8px 0}
+.item-row{
+  display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:start;
+}
+.item-row input[type="file"]{width:100%;max-width:100%}
+.item-remove{height:38px}
+
+/* выравнивание только для нужных сеток в edit_type */
+.type-grid{align-items:start}
+.type-grid input[type="file"]{width:100%;max-width:100%}
+
+/* аккуратная обёртка для file-инпутов, без обрезки имени */
+.file-field{display:block;width:100%;max-width:100%}
+.file-note{
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:12px; color:var(--muted); margin-top:4px
+}
+
+/* мини-превью эталонов в карточке экземпляра */
+.ref-thumbs{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+  gap:8px; margin-top:8px
+}
+.ref-thumbs img{
+  width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid var(--border)
+}
+
+/* overlay-крестик на мини-превью (чёрный, без фона, в самом углу) */
+.ref-thumb{ position:relative; }
+.ref-thumb img{ display:block; }
+.thumb-remove-form{ position:absolute; top:2px; right:2px; }
+.thumb-remove{
+  appearance:none; -webkit-appearance:none;
+  background:transparent; border:none; padding:0; margin:0;
+  color:#0b0b0b; font-size:18px; line-height:1; cursor:pointer;
+}
+.thumb-remove:hover{ opacity:.8; }
+
+/* широкие модалки для эталонов и добавления экземпляра */
+.ref-dialog, .additem-dialog{max-width:900px; width:96%}
+
+/* визуально неактивные кнопки */
+.btn:disabled,
+.btn[disabled],
+button.btn:disabled,
+.btn.disabled,
+.btn[aria-disabled="true"]{
+  opacity:.5;
+  color:var(--muted);
+  background:#f8fafc;
+  border-color:var(--border);
+  cursor:not-allowed;
+  pointer-events:none;
+  box-shadow:none;
+}
+.btn-primary:disabled,
+.btn-primary[disabled]{ background:#9ca3af; border-color:#9ca3af; color:#fff; }
+.btn-danger:disabled,
+.btn-danger[disabled]{ background:#fecaca; border-color:#fecaca; color:#7f1d1d; }
+.btn-outline:disabled,
+.btn-outline[disabled]{ background:#f8fafc; color:#94a3b8; border-color:var(--border); }
+
+/* крестик удаления эталона — прятать/гасить при блокировке */
+.ref-thumb{ position:relative; }
+.thumb-remove{
+  position:absolute; top:6px; right:6px;
+  background:none; border:none; padding:0; margin:0;
+  font-size:18px; line-height:1;
+  color:#111827; cursor:pointer;
+}
+.thumb-remove:disabled{
+  opacity:.35; cursor:not-allowed; pointer-events:none;
+}
+
+/* компактная предупреждающая подпись */
+.warn-note{
+  color: var(--warn);
+  font-size: 13px;
+}
+
+/* текст-предупреждение для статусов */
+.text-warn{
+  color: var(--warn);
+  font-size: 13px;
+}
+
+/* галерея на странице закрытия — без приближения/кадрирования */
+.review-gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+  gap:12px;
+}
+
+/* задаём фиксированную высоту контейнера и центрируем изображение */
+.photo-thumb{
+  position:relative;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:#f8fafc;          /* светлый фон, чтобы были видны «поля» */
+  height:260px;                 /* можно увеличить, например до 300–320px */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.photo-thumb img{
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
+  object-fit:contain;           /* ключ: вписываем без обрезки */
+  display:block;
+}
+
+/* крестик удаления — как было */
+.photo-remove{
+  position:absolute;
+  top:8px; right:8px;
+  width:28px; height:28px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:#111827;
+  font-size:18px;
+  line-height:26px;
+  text-align:center;
+  cursor:pointer;
+  box-shadow:0 1px 6px rgba(16,24,40,.12);
+}
+.photo-remove:hover{ background:#f8fafc; }
+

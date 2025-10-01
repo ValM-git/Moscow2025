@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Заявки</h2>
+{% if reqs|length == 0 %}
+  <p class="muted">Пока нет заявок. Создайте первую во вкладке «Создать заявку».</p>
+{% endif %}
+
+<div class="grid-list">
+  {% for r in reqs %}
+    <div class="card">
+
+      <div class="row">
+        <div class="title">№ {{ r.code }}</div>
+        <div>
+          {% if r.status == 'open' %}
+            <span class="badge warn">Открыта</span>
+          {% elif r.status == 'closed_missing' %}
+            <span class="badge" style="background:#ef4444;color:#fff">Закрыта</span>
+          {% elif r.status == 'closed' %}
+            <span class="badge" style="background:#10b981;color:#fff">Закрыта</span>
+          {% else %}
+            <span class="badge">{{ r.status }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="muted">Создана: {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+      {% if r.status != 'open' and r.closed_at %}
+        <div class="muted">Закрыта: {{ r.closed_at.strftime('%Y-%m-%d %H:%M') }}</div>
+      {% endif %}
+
+      {% set missing = (missing_by_req.get(r.id) if missing_by_req is defined else set()) %}
+
+      <div class="list" style="margin-top:8px">
+        <div class="subtitle">Конкретные экземпляры:</div>
+        {% for link in r.items %}
+          <div>
+            • <span {% if link.item.inv in missing %}style="color:#b91c1c;font-weight:600"{% endif %}>
+                {{ link.item.type.name }}
+              </span> — инв. {{ link.item.inv }}
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if r.status == 'open' %}
+        <div class="actions">
+          <a class="btn btn-outline" href="{{ url_for('close_request', req_id=r.id) }}">Закрыть заявку</a>
+        </div>
+      {% else %}
+        {% if r.photos|length > 0 %}
+          <div class="thumbs">
+            {% for p in r.photos %}
+              <a href="{{ url_for('uploaded_file', folder='requests', filename=p.filename) }}" target="_blank">
+                <img src="{{ url_for('uploaded_file', folder='requests', filename=p.filename) }}" alt="photo {{ loop.index }}">
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="muted">Фото возврата не прикреплены</div>
+        {% endif %}
+      {% endif %}
+
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
+

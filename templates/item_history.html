@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>История экземпляра — инв. {{ item.inv }} ({{ item.type.name }})</h2>
+
+<div class="card">
+  <div class="tool">
+    <div class="thumb big"><img src="{{ item.photo_url() }}" alt="{{ item.inv }}"></div>
+    <div class="tool-info">
+      <div class="title">{{ item.type.name }}</div>
+      <div class="muted">Инв. номер: {{ item.inv }} • {{ 'Заблокирован (в заявке)' if item.is_blocked else 'Свободен' }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Движения</h3>
+  {% if moves|length == 0 %}
+    <p class="muted">Пока нет записей.</p>
+  {% else %}
+    <div class="list">
+      {% for m in moves %}
+        <div>
+          • {{ m.ts.strftime('%Y-%m-%d %H:%M') }} — 
+          {% if m.action == 'reserved' %}зарезервирован{% elif m.action == 'returned' %}возвращён{% elif m.action == 'unreserved' %}разрезервирован{% else %}{{ m.action }}{% endif %}
+          (заявка № {{ m.request.code }})
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

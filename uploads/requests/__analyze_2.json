@@ -1,0 +1,33 @@
+{
+  "req_id": 2,
+  "ts": 1759318488,
+  "threshold": 0.5,
+  "items": [
+    {
+      "inv": "INV-014",
+      "found": true,
+      "score": 0.782,
+      "photo_annot": "WIN_20250922_09_49_55_Pro-346ab2ed__annot.png",
+      "photo_id": 2,
+      "bbox": [
+        444,
+        124,
+        167,
+        780
+      ]
+    },
+    {
+      "inv": "INV-015",
+      "found": true,
+      "score": 0.5,
+      "photo_annot": "WIN_20250922_09_49_55_Pro-346ab2ed__annot.png",
+      "photo_id": 2,
+      "bbox": [
+        657,
+        37,
+        238,
+        964
+      ]
+    }
+  ]
+}

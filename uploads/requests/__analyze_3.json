@@ -1,0 +1,42 @@
+{
+  "req_id": 3,
+  "ts": 1759318576,
+  "threshold": 0.5,
+  "items": [
+    {
+      "inv": "INV-013",
+      "found": true,
+      "score": 0.769,
+      "photo_annot": "WIN_20250922_09_44_52_Pro-2d2fd7f6__annot.png",
+      "photo_id": 4,
+      "bbox": [
+        239,
+        139,
+        541,
+        802
+      ]
+    },
+    {
+      "inv": "INV-014",
+      "found": true,
+      "score": 1.0,
+      "photo_annot": "WIN_20250922_09_41_02_Pro-f03ef7b5__annot.png",
+      "photo_id": 3,
+      "bbox": [
+        418,
+        168,
+        312,
+        760
+      ]
+    },
+    {
+      "inv": "INV-015",
+      "found": false,
+      "score": null,
+      "photo_annot": null,
+      "photo_id": null,
+      "bbox": null,
+      "user_status": "manual_found"
+    }
+  ]
+}

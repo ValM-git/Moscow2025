@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Справочник инструментов</h2>
+
+<form method="get" class="card tools-actions" action="{{ url_for('tools') }}">
+  <div class="actions-row">
+    <div class="search-wrap">
+      <input type="text" name="q" value="{{ q or '' }}" placeholder="Поиск по названию или инв. номеру…">
+      <button class="btn" type="submit">Найти</button>
+      {% if q %}
+        <a class="btn" href="{{ url_for('tools') }}">Сброс</a>
+      {% endif %}
+    </div>
+    <div class="add-wrap">
+      <button class="btn btn-primary" type="button" id="openAdd">+ Добавить инструмент</button>
+    </div>
+  </div>
+</form>
+
+<div class="grid-list wide-cards">
+  {% for t in tools %}
+    <div class="card">
+      <div class="tool">
+        <div class="thumb big">
+          {% if t.photo_url() %}
+            <img src="{{ t.photo_url() }}" alt="{{ t.name }}">
+          {% else %}
+            <div class="thumb-empty">Нет фото</div>
+          {% endif %}
+        </div>
+        <div class="tool-info">
+          <div class="title">{{ t.name }}</div>
+          <div class="muted">Инв.: {{ t.inv }}</div>
+        </div>
+      </div>
+
+      <form action="{{ url_for('tool_upload', tool_id=t.id) }}" method="post" enctype="multipart/form-data" class="upload stacked">
+        <input type="file" name="photo" accept="image/*">
+        <button class="btn btn-outline" type="submit">Загрузить фото</button>
+      </form>
+
+      <form action="{{ url_for('tool_delete', tool_id=t.id) }}" method="post" onsubmit="return confirm('Удалить инструмент?');">
+        <button class="btn btn-danger" type="submit">Удалить</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+
+{% if tools|length == 0 %}
+  <p class="muted">Ничего не найдено по запросу «{{ q }}».</p>
+{% endif %}
+
+<dialog id="addModal">
+  <form method="post" class="card modal-card" enctype="multipart/form-data">
+    <h3 class="modal-title">Добавить инструмент</h3>
+    <div class="grid">
+      <div>
+        <label>Название</label>
+        <input type="text" name="name" placeholder="Напр., Отвёртка крестовая PH2" required>
+      </div>
+      <div>
+        <label>Инв. номер</label>
+        <input type="text" name="inv" placeholder="Напр., INV-0003" required>
+      </div>
+    </div>
+    <div class="muted" style="margin-top:8px">Фото можно загрузить позже из карточки инструмента.</div>
+    <div class="actions">
+      <button class="btn" type="button" id="closeAdd">Отмена</button>
+      <button class="btn btn-primary" type="submit">Добавить</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  const addBtn = document.getElementById('openAdd');
+  const closeBtn = document.getElementById('closeAdd');
+  const dlg = document.getElementById('addModal');
+  if (addBtn && dlg) addBtn.addEventListener('click', () => dlg.showModal());
+  if (closeBtn && dlg) closeBtn.addEventListener('click', () => dlg.close());
+</script>
+{% endblock %}

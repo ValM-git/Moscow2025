@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Тип: {{ t.name }}</h2>
+
+<form id="delete_type_form" method="post" style="display:none">
+  <input type="hidden" name="action" value="delete_type">
+</form>
+
+<div class="card">
+  <div class="tool">
+    <div class="thumb big"><img src="{{ t.photo_url() }}" alt="{{ t.name }}"></div>
+  <div class="tool-info">
+    <div class="title">{{ t.name }}</div>
+    <div class="muted">Всего: {{ t.total_count }} • Доступно: {{ t.available_count }}</div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-danger"
+            type="submit"
+            form="delete_type_form"
+            {% if t.items|length > 0 %}disabled{% endif %}
+            onclick="return confirm('Удалить этот тип?');">
+      Удалить тип
+    </button>
+  </div>
+
+  {% if t.items|length > 0 %}
+    <div class="warn-note" style="margin-top:6px">Нельзя удалить: есть экземпляры</div>
+  {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>Экземпляры типа</h3>
+
+  <div class="grid-list onecol">
+    {% for it in t.items %}
+    <div class="card">
+        <div class="tool tool-split">
+          <div class="media-col">
+            <div class="thumb big"><img src="{{ it.photo_url() }}" alt="{{ it.inv }}"></div>
+
+            <form method="post" enctype="multipart/form-data" class="replace-form">
+              <input type="hidden" name="action" value="update_main">
+              <input type="hidden" name="item_id" value="{{ it.id }}">
+              <label>Заменить основное фото</label>
+              <div class="file-field">
+                <input type="file" name="photo" accept="image/*"
+                       {% if it.is_blocked %}disabled{% endif %}
+                       onchange="this.form.submit()">
+              </div>
+            </form>
+          </div>
+
+          <div class="tool-info">
+            <div class="title">Инв.: {{ it.inv }}</div>
+            <div class="{{ 'text-warn' if it.is_blocked else 'muted' }}">
+              {{ 'Заблокирован (в заявке)' if it.is_blocked else 'Свободен' }}
+            </div>
+            <div class="actions" style="margin-top:8px">
+              <button class="btn btn-danger" type="submit" form="delete_item_form_{{ it.id }}"
+                      {% if it.is_blocked %}disabled{% endif %}
+                      onclick="return confirm('Удалить экземпляр {{ it.inv }}?');">Удалить экземпляр</button>
+              <a class="btn" href="{{ url_for('item_history', item_id=it.id) }}">История</a>
+            </div>
+          </div>
+        </div>
+
+      <div class="subtitle" style="margin-top:8px">
+        Эталонные фото (разные ракурсы) <span class="muted">— {{ it.ref_photos|length }}</span>
+      </div>
+
+      {% if it.ref_photos|length == 0 %}
+        <div class="muted">Эталонных фото пока нет — добавьте ниже.</div>
+      {% else %}
+      <div class="ref-thumbs">
+        {% for ref in it.ref_photos %}
+          <div class="ref-thumb">
+            <a href="{{ url_for('uploaded_file', folder='items', filename=ref.filename) }}" target="_blank" title="Открыть оригинал">
+              <img src="{{ url_for('uploaded_file', folder='items', filename=ref.filename) }}" alt="ref {{ loop.index }}">
+            </a>
+            <form class="thumb-remove-form" method="post"
+                  action="{{ url_for('delete_item_ref', item_id=it.id, ref_id=ref.id) }}"
+                  onsubmit="return confirm('Удалить эталон?');">
+              <button class="thumb-remove" type="submit" {% if it.is_blocked %}disabled{% endif %}>×</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="actions" style="justify-content:flex-start;margin-top:8px">
+        <button class="btn btn-outline" type="button"
+                onclick="openRefModal('{{ it.id }}')"
+                {% if it.is_blocked %}disabled{% endif %}>
+          + Добавить эталонные фотографии
+        </button>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<hr style="margin:12px 0;border:none;border-top:1px solid #e6e8ef">
+
+<div class="actions" style="justify-content:center">
+  <button class="btn btn-primary" type="button" onclick="openAddItemModal()">+ Добавить экземпляр</button>
+</div>
+
+<dialog id="addItemModal" class="additem-dialog">
+  <form method="post"
+        id="addItemForm"
+        class="card modal-card"
+        enctype="multipart/form-data"
+        novalidate
+        onsubmit="return validateAddItemModal()">
+    <h3 class="modal-title">Новый экземпляр</h3>
+    <input type="hidden" name="action" value="add_item">
+
+    <div class="grid type-grid">
+      <div>
+        <label>Инвентарный номер</label>
+        <input type="text" name="inv_new" id="inv_new">
+      </div>
+      <div>
+        <label>Эталонные фото (можно несколько)</label>
+        <div class="file-field">
+          <input type="file" name="refs_new[]" id="refs_new" accept="image/*" multiple>
+        </div>
+        <div class="file-note">Можно совместить с камерой ниже</div>
+      </div>
+    </div>
+
+    <div class="subtitle" style="margin-top:8px">Съёмка с камеры</div>
+    <video id="cam_new" autoplay playsinline
+           style="width:100%;max-width:420px;border:1px solid #e6e8ef;border-radius:12px"></video>
+    <canvas id="cnv_new" style="display:none"></canvas>
+
+    <div class="actions" style="justify-content:flex-start;margin:8px 0">
+      <button class="btn" type="button" onclick="startCam('new')">Включить камеру</button>
+      <button class="btn" type="button" onclick="shotCamList('new')">Снять кадр</button>
+      <button class="btn" type="button" onclick="clearShots('new')">Очистить кадры</button>
+    </div>
+
+    <div class="subtitle">Снятые кадры</div>
+    <div class="ref-thumbs" id="shots_new"></div>
+    <div id="shots_inputs_new"></div>
+    <div id="addItemAlert" class="flash error" style="display:none;margin-top:8px"></div>
+
+    <div class="actions">
+      <button class="btn" type="button" onclick="closeAddItemModal()">Отмена</button>
+      <button class="btn btn-primary" type="submit">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+{% for it in t.items %}
+<form id="delete_item_form_{{ it.id }}" method="post" style="display:none">
+  <input type="hidden" name="action" value="delete_item">
+  <input type="hidden" name="item_id" value="{{ it.id }}">
+</form>
+{% endfor %}
+
+{% for it in t.items %}
+<dialog id="refModal_{{ it.id }}" class="ref-dialog">
+  <form method="post" class="card modal-card" enctype="multipart/form-data"
+        action="{{ url_for('add_item_refs', item_id=it.id) }}"
+        novalidate>
+
+    <h3 class="modal-title">Добавить эталонные фото — инв. {{ it.inv }}</h3>
+
+    <div class="grid type-grid">
+      <div>
+        <label>Выбрать файлы (можно несколько)</label>
+        <div class="file-field">
+          <input type="file" name="refs[]" accept="image/*" multiple>
+        </div>
+        <div class="file-note">Вы можете совместить: загрузить файлы и/или снять кадры камерой.</div>
+      </div>
+
+      <div>
+        <label>Съёмка с камеры</label>
+        <video id="cam_{{ it.id }}" autoplay playsinline
+               style="width:100%;max-width:360px;border:1px solid #e6e8ef;border-radius:12px"></video>
+        <canvas id="cnv_{{ it.id }}" style="display:none"></canvas>
+        <div class="actions" style="justify-content:flex-start;margin-top:8px">
+          <button class="btn" type="button" onclick="startCam('{{ it.id }}')">Включить камеру</button>
+          <button class="btn" type="button" onclick="shotCam('{{ it.id }}')">Снять кадр</button>
+          <button class="btn" type="button" onclick="clearShots('{{ it.id }}')">Очистить кадры</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="subtitle" style="margin-top:8px">Наснятые кадры</div>
+    <div class="ref-thumbs" id="shots_{{ it.id }}"></div>
+
+    <div id="shots_inputs_{{ it.id }}"></div>
+
+    <div class="actions">
+      <button class="btn" type="button" onclick="closeRefModal('{{ it.id }}')">Отмена</button>
+      <button class="btn btn-primary" type="submit">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
+
+<script>
+  // Управление модалками и камерой
+  const streams = {};
+
+  function openRefModal(id){
+    const dlg = document.getElementById('refModal_'+id);
+    if (dlg) dlg.showModal();
+  }
+  function closeRefModal(id){
+    const dlg = document.getElementById('refModal_'+id);
+    if (dlg) dlg.close();
+    // останавливаем камеру, если была включена
+    const s = streams[id];
+    if (s) { s.getTracks().forEach(t => t.stop()); delete streams[id]; }
+  }
+
+  async function startCam(id){
+    try{
+      if (!streams[id]) {
+        streams[id] = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      }
+      const v = document.getElementById('cam_'+id);
+      if (v) v.srcObject = streams[id];
+    }catch(e){ alert('Камера недоступна: '+e); }
+  }
+
+  function shotCam(id){
+    const v = document.getElementById('cam_'+id);
+    if (!v || !v.videoWidth){ alert('Камера не готова'); return; }
+    const c = document.getElementById('cnv_'+id);
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    const ctx = c.getContext('2d'); ctx.drawImage(v, 0, 0);
+    const dataUrl = c.toDataURL('image/png');
+
+    const shots = document.getElementById('shots_'+id);
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.padding = '6px';
+    div.innerHTML = `<img src="${dataUrl}" style="width:100%;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e6e8ef">`;
+    shots.appendChild(div);
+
+    const holder = document.getElementById('shots_inputs_'+id);
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'data_url[]';
+    input.value = dataUrl;
+    holder.appendChild(input);
+  }
+
+  function clearShots(id){
+    const shots = document.getElementById('shots_'+id);
+    const holder = document.getElementById('shots_inputs_'+id);
+    if (shots) shots.innerHTML = '';
+    if (holder) holder.innerHTML = '';
+  }
+
+  document.querySelectorAll('dialog[id^="refModal_"]').forEach(dlg => {
+    dlg.addEventListener('close', () => {
+      const id = dlg.id.replace('refModal_', '');
+      const s = streams[id];
+      if (s) { s.getTracks().forEach(t => t.stop()); delete streams[id]; }
+    });
+  });
+
+    function openAddItemModal(){
+    const dlg = document.getElementById('addItemModal');
+    if (dlg) dlg.showModal();
+  }
+  function closeAddItemModal(){
+    const dlg = document.getElementById('addItemModal');
+    if (dlg) dlg.close();
+    const s = streams['new'];
+    if (s) { s.getTracks().forEach(t => t.stop()); delete streams['new']; }
+  }
+
+  function shotCamList(id){
+    const v = document.getElementById('cam_'+id);
+    if (!v || !v.videoWidth){ alert('Камера не готова'); return; }
+    const c = document.getElementById('cnv_'+id);
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    const ctx = c.getContext('2d'); ctx.drawImage(v, 0, 0);
+    const dataUrl = c.toDataURL('image/png');
+
+    const shots = document.getElementById('shots_'+id);
+    const holder = document.getElementById('shots_inputs_'+id);
+
+    const div = document.createElement('div');
+    div.className = 'card'; div.style.padding = '6px';
+    div.innerHTML = `<img src="${dataUrl}" style="width:100%;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e6e8ef">`;
+    shots.appendChild(div);
+
+    const input = document.createElement('input');
+    input.type = 'hidden'; input.name = 'data_url[]'; input.value = dataUrl;
+    holder.appendChild(input);
+  }
+
+  function shotCam(id){ shotCamList(id); }
+
+    function validateAddItemModal(){
+    const inv = (document.getElementById('inv_new').value || '').trim();
+    const filesInput = document.getElementById('refs_new');
+    const filesCount = filesInput && filesInput.files ? filesInput.files.length : 0;
+    const shotsCount = document.querySelectorAll('#shots_inputs_new input[name="data_url[]"]').length;
+    const total = filesCount + shotsCount;
+
+    const alertBox = document.getElementById('addItemAlert');
+
+    if (!inv){
+      alertBox.textContent = 'Введите инвентарный номер';
+      alertBox.style.display = 'block';
+      return false; // не отправляем форму, остаёмся в модалке
+    }
+    if (total < 3){
+      alertBox.textContent = 'Нужно минимум 3 фото (файлами и/или с камеры)';
+      alertBox.style.display = 'block';
+      return false; // остаёмся в модалке
+    }
+
+    alertBox.style.display = 'none';
+    return true;
+  }
+
+  (function(){
+    const alertBox = document.getElementById('addItemAlert');
+    const inv = document.getElementById('inv_new');
+    const files = document.getElementById('refs_new');
+    if (inv) inv.addEventListener('input', () => alertBox.style.display = 'none');
+    if (files) files.addEventListener('change', () => alertBox.style.display = 'none');
+    // при каждом новом кадре с камеры тоже прячем алерт
+    const origShotCamList = window.shotCamList;
+    window.shotCamList = function(id){
+      if (typeof origShotCamList === 'function') origShotCamList(id);
+      if (alertBox) alertBox.style.display = 'none';
+    }
+  })();
+
+</script>
+{% endblock %}
+
+
+.tool { align-items: flex-start; }
+.tool-split .media-col{
+  display:flex; flex-direction:column; gap:8px; width: 200px; /* близко к 180px у .thumb.big */
+}
+.replace-form .file-field input[type="file"]{
+  width:100%; max-width:100%;
+}
+.replace-form label{
+  font-size:12px; color:var(--muted); display:block; margin-bottom:4px;
+}

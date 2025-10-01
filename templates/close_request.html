@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Закрыть заявку № {{ req.code }}</h2>
+
+<!-- 1) Экземпляры к возврату -->
+<div class="card">
+  <div class="subtitle">Экземпляры к возврату:</div>
+  <div class="grid-list">
+    {% for link in req.items %}
+      <div class="card">
+        <div class="tool">
+          <div class="thumb big"><img src="{{ link.item.photo_url() }}" alt="{{ link.item.inv }}"></div>
+          <div class="tool-info">
+            <div class="title">{{ link.item.type.name }}</div>
+            <div class="muted">Инв.: {{ link.item.inv }}</div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- 2) Фотографии для сверки -->
+<div class="card">
+  <div class="row" style="align-items:center">
+    <h3 style="margin:0">Фотографии для сверки</h3>
+    <div>
+      <button class="btn" type="button" id="openPhotos">+ Добавить фотографии</button>
+    </div>
+  </div>
+
+  {% if req.photos|length > 0 %}
+    <div id="reviewGallery" class="review-gallery" style="margin-top:12px">
+      {% for ph in req.photos %}
+        <div class="photo-thumb">
+          <img src="{{ url_for('uploaded_file', folder='requests', filename=ph.filename) }}" alt="photo {{ loop.index }}">
+          <form method="post"
+                action="{{ url_for('delete_request_photo', req_id=req.id, photo_id=ph.id) }}"
+                class="thumb-remove-form">
+            <button class="photo-remove" type="submit" title="Удалить фото">×</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="muted" id="noPhotosHint" style="margin-top:12px">Фотографии пока не добавлены.</div>
+  {% endif %}
+
+  <!-- порог + кнопка проверки -->
+  <div class="actions" style="justify-content:flex-end;margin-top:12px; gap:10px; align-items:center">
+    <label for="thresholdInput" class="muted">Порог</label>
+    <input
+      id="thresholdInput"
+      type="number"
+      step="0.01"
+      min="0"
+      max="1"
+      name="threshold"
+      value="{{ '%.2f'|format((threshold_default or 0.50)|float) }}"
+      form="analyzeForm"
+      style="width:90px"
+    >
+    <button class="btn btn-primary"
+            id="checkPhotos"
+            type="submit"
+            form="analyzeForm"
+            {% if req.photos|length == 0 %}disabled{% endif %}>
+      Проверить
+    </button>
+  </div>
+</div>
+
+<!-- 3) Результаты по предметам -->
+<div class="card" id="resultsCard" style="position:relative">
+  <div class="row" style="align-items:center">
+    <h3 style="margin:0">Результаты по предметам</h3>
+    <div class="muted">— каждый ожидаемый инв. номер и статус после проверки</div>
+  </div>
+
+  <!-- Оверлей анализа -->
+  <div id="analyzeOverlay" style="
+       position:absolute; inset:0; display:none;
+       align-items:center; justify-content:center;
+       background:rgba(255,255,255,0.88); backdrop-filter:blur(1px); z-index:2;">
+    <div style="text-align:center">
+      <div style="margin:0 auto 12px; width:42px; height:42px;
+                  border:4px solid #e5e7eb; border-top-color:#3b82f6;
+                  border-radius:50%; animation:spin 1s linear infinite"></div>
+      <div id="analyzeStep" style="font-weight:600; color:#374151">Подготовка…</div>
+      <div style="margin-top:10px; width:260px; height:6px; background:#e5e7eb;
+                  border-radius:9999px; overflow:hidden">
+        <div style="height:100%; background:#3b82f6; animation:indet 1.6s ease-in-out infinite"></div>
+      </div>
+    </div>
+  </div>
+
+  {% set analyze_items = (analyze and analyze['items']) or [] %}
+  {% set has_result = analyze_items|length > 0 %}
+
+  <div class="grid-list" style="margin-top:12px">
+    {% for link in req.items %}
+      {% set inv = link.item.inv %}
+      {% set rec = (has_result and (analyze_items | selectattr('inv', 'equalto', inv) | list | first)) or None %}
+      {% set manual = rec and rec.get('user_status') %}
+      {% set danger_border = (rec and (not rec['found']) and (manual not in ['manual_found','absent'])) %}
+
+      <div class="card" style="border:1px solid var(--border); {% if danger_border %}border-width:2px;border-color:#ef4444{% endif %}">
+        <div class="tool">
+          <div class="thumb">
+            <img src="{{ link.item.photo_url() }}" alt="{{ inv }}">
+          </div>
+          <div class="tool-info">
+            <div class="title">{{ link.item.type.name }}</div>
+            <div class="muted">Инв.: {{ inv }}</div>
+          </div>
+        </div>
+
+        {% if rec and rec['photo_annot'] and (rec['found'] or manual == 'manual_found') %}
+          <div style="margin-top:8px">
+            <button class="btn btn-outline" type="button"
+                    data-toggle="show-annot"
+                    data-inv="{{ inv }}">Смотреть фото</button>
+          </div>
+          <div class="annot-wrap" id="annot-{{ inv }}" style="display:none;margin-top:10px">
+            <img style="width:100%;border-radius:10px;border:1px solid var(--border)"
+                 src="{{ url_for('uploaded_file', folder='requests', filename=rec['photo_annot']) }}"
+                 alt="annot for {{ inv }}">
+          </div>
+        {% endif %}
+
+        <div class="actions" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+          {% if rec %}
+            {% if manual == 'absent' %}
+              <span class="badge"
+                    style="display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:9999px;background:#ef4444;color:#fff;font-size:16px">
+                Отсутствует (вручную)
+              </span>
+            {% elif manual == 'manual_found' %}
+              <span class="badge"
+                    style="display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:9999px;background:#10b981;color:#fff;font-size:16px">
+                Найден (вручную)
+              </span>
+              <button class="btn" type="button"
+                      data-decision="absent" data-inv="{{ inv }}"
+                      title="Пометить отсутствует">✖</button>
+            {% else %}
+              {% if rec['found'] %}
+                <span class="badge"
+                      style="display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:9999px;background:#10b981;color:#fff;font-size:16px">
+                  Найден • {{ '%.2f'|format(rec['score']) }}
+                </span>
+                <button class="btn" type="button"
+                        data-decision="absent" data-inv="{{ inv }}"
+                        title="Пометить отсутствует">✖</button>
+              {% else %}
+                <span class="badge"
+                      style="display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:9999px;background:#ef4444;color:#fff;font-size:16px">
+                  Не найден
+                </span>
+                <button class="btn" type="button"
+                        data-decision="absent" data-inv="{{ inv }}"
+                        title="Отметить отсутствие">✖</button>
+                <button class="btn" type="button"
+                        data-decision="manual_found" data-inv="{{ inv }}"
+                        title="Отметить наличие">✔</button>
+              {% endif %}
+            {% endif %}
+          {% else %}
+            <span class="badge"
+                  style="display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:9999px;background:#6b7280;color:#fff;font-size:16px">
+              Пока не проверяли
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% set expected_count = req.items|length %}
+  {% set ns = namespace(resolved_count=0) %}
+  {% for link in req.items %}
+    {% set inv = link.item.inv %}
+    {% set rec = (has_result and (analyze_items | selectattr('inv','equalto',inv) | list | first)) or None %}
+    {% if rec %}
+      {% set resolved = (rec['found'] or (rec.get('user_status') in ['manual_found','absent'])) %}
+      {% if resolved %}{% set ns.resolved_count = ns.resolved_count + 1 %}{% endif %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="actions" id="finalizeArea" style="justify-content:flex-end;margin-top:12px">
+    {% if has_result and ns.resolved_count == expected_count %}
+      <form method="post" action="{{ url_for('finalize_request', req_id=req.id) }}">
+        <button class="btn btn-primary" type="submit">Подтвердить и завершить</button>
+      </form>
+    {% else %}
+      <div class="muted">
+        <strong>Чтобы продолжить, отметьте вручную наличие или отсутствие для всех позиций,
+        которые автоматическая проверка не нашла.</strong>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- скрытая форма для анализа -->
+<form id="analyzeForm" method="post" action="{{ url_for('analyze_request', req_id=req.id) }}"></form>
+
+<!-- Модалка добавления фото (файлы + камера) -->
+<dialog id="photosModal" class="ref-dialog">
+  <div class="card modal-card">
+    <h3 class="modal-title">Добавить фото для сверки</h3>
+
+    <form id="photosForm" method="post" enctype="multipart/form-data"
+          action="{{ url_for('add_request_photos', req_id=req.id) }}">
+      <div class="grid type-grid">
+        <div>
+          <label>Выберите файлы (можно несколько)</label>
+          <div class="file-field" id="pm_files_wrap">
+            <input type="file" id="pm_files" name="photos[]" accept="image/*" multiple>
+          </div>
+          <div class="file-note">Можно совместить с камерой ниже.</div>
+        </div>
+        <div>
+          <label>Съёмка с камеры</label>
+          <video id="pm_cam" autoplay playsinline
+                 style="width:100%;max-width:520px;border:1px solid #e6e8ef;border-radius:12px"></video>
+          <canvas id="pm_cnv" style="display:none"></canvas>
+          <div class="actions" style="justify-content:flex-start;margin-top:8px">
+            <button class="btn" type="button" id="pm_start">Включить камеру</button>
+            <button class="btn" type="button" id="pm_shot">Сделать кадр</button>
+            <button class="btn" type="button" id="pm_clear">Очистить кадры</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subtitle" style="margin-top:8px">Снятые кадры</div>
+      <div class="ref-thumbs" id="pm_shots"></div>
+      <div id="pm_hidden"></div>
+      <div id="pm_alert" class="flash error" style="display:none;margin-top:8px"></div>
+
+      <div class="actions">
+        <button class="btn" type="button" id="pm_cancel">Отмена</button>
+        <button class="btn btn-primary" type="button" id="pm_save">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes indet {
+  0%   { margin-left:-40%; width:40%; }
+  50%  { margin-left: 20%; width:60%; }
+  100% { margin-left:100%; width:40%; }
+}
+</style>
+
+<script>
+  // ======= DOM =======
+  const dlg       = document.getElementById('photosModal');
+  const openBtn   = document.getElementById('openPhotos');
+  const pmFilesW  = document.getElementById('pm_files_wrap');
+  let   pmFiles   = document.getElementById('pm_files');
+  const pmCam     = document.getElementById('pm_cam');
+  const pmCnv     = document.getElementById('pm_cnv');
+  const pmShots   = document.getElementById('pm_shots');
+  const pmHidden  = document.getElementById('pm_hidden');
+  const pmAlert   = document.getElementById('pm_alert');
+  const photosForm= document.getElementById('photosForm');
+
+  // ======= камера =======
+  const streams = {};
+  function stopCam(id='photos'){
+    const s = streams[id];
+    if (s){ s.getTracks().forEach(t => t.stop()); delete streams[id]; }
+  }
+  async function startCam(id='photos'){
+    try{
+      if (!streams[id]) {
+        streams[id] = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      }
+      pmCam.srcObject = streams[id];
+    }catch(e){ alert('Камера недоступна: '+e); }
+  }
+  function shotCam(){
+    if (!pmCam || !pmCam.videoWidth){ alert('Камера не готова'); return; }
+    pmCnv.width = pmCam.videoWidth; pmCnv.height = pmCam.videoHeight;
+    const ctx = pmCnv.getContext('2d'); ctx.drawImage(pmCam, 0, 0);
+    const dataUrl = pmCnv.toDataURL('image/png');
+
+    const div = document.createElement('div');
+    div.className = 'card'; div.style.padding = '6px';
+    div.innerHTML = `<img src="${dataUrl}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:1px solid #e6e8ef">`;
+    pmShots.appendChild(div);
+
+    const h = document.createElement('input');
+    h.type = 'hidden'; h.name = 'data_url[]'; h.value = dataUrl;
+    pmHidden.appendChild(h);
+
+    if (pmAlert) pmAlert.style.display = 'none';
+  }
+  function clearShots(){
+    pmShots.innerHTML = '';
+    pmHidden.innerHTML = '';
+  }
+
+  if (openBtn) openBtn.onclick = () => { if (pmAlert) pmAlert.style.display = 'none'; dlg.showModal(); };
+  document.getElementById('pm_cancel').onclick = () => { dlg.close(); stopCam(); };
+  document.getElementById('pm_start').onclick  = () => startCam();
+  document.getElementById('pm_shot').onclick   = () => shotCam();
+  document.getElementById('pm_clear').onclick  = () => clearShots();
+  dlg.addEventListener('close', stopCam);
+
+  document.getElementById('pm_save').onclick = () => {
+    const haveFiles = pmFiles && pmFiles.files && pmFiles.files.length > 0;
+    const haveShots = pmHidden.querySelector('input[name="data_url[]"]') !== null;
+    if (!haveFiles && !haveShots){
+      pmAlert.textContent = 'Добавьте фото: выберите файлы и/или снимите кадры с камеры';
+      pmAlert.style.display = 'block';
+      return;
+    }
+    photosForm.submit();
+  };
+
+  // Тоггл «Смотреть фото»
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-toggle="show-annot"]');
+    if (!btn) return;
+    const inv = btn.getAttribute('data-inv');
+    const block = document.getElementById('annot-' + inv);
+    if (block) {
+      const vis = block.style.display !== 'none';
+      block.style.display = vis ? 'none' : 'block';
+      btn.textContent = vis ? 'Смотреть фото' : 'Скрыть фото';
+    }
+  });
+
+  // Ручные решения (✖/✔)
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-decision]');
+    if (!btn) return;
+
+    const inv = btn.getAttribute('data-inv');
+    const action = btn.getAttribute('data-decision'); // 'absent' | 'manual_found'
+    try {
+      const resp = await fetch('{{ url_for("set_item_decision", req_id=req.id) }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({inv, action})
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        alert(data.msg || 'Ошибка сохранения решения');
+        return;
+      }
+      location.reload();
+    } catch(err) {
+      alert('Сеть недоступна: ' + err);
+    }
+  });
+
+  // === Оверлей + отправка анализа через fetch ===
+  (function () {
+    const form     = document.getElementById('analyzeForm');
+    const overlay  = document.getElementById('analyzeOverlay');
+    const stepEl   = document.getElementById('analyzeStep');
+    const checkBtn = document.getElementById('checkPhotos');
+    const thrInput = document.getElementById('thresholdInput');
+
+    if (!form || !overlay || !stepEl || !checkBtn) return;
+
+    const steps = [
+      'Сегментация: выделение объектов на снимках…',
+      'Извлечение признаков формы и цвета…',
+      'Сопоставление с эталонными образцами…',
+      'Уточнение контуров и фильтрация шумов…',
+    ];
+    const STEP_MS = 15000;       // смена фразы раз в 15 сек
+    const MAX_WAIT_MS = 180000;  // аварийный таймаут 3 мин
+
+    let idx = 0, timer = null, killer = null;
+
+    function showOverlay() {
+      checkBtn.disabled = true;
+      overlay.style.display = 'flex';
+      stepEl.textContent = steps[idx = 0];
+      timer = setInterval(() => {
+        idx = (idx + 1) % steps.length;
+        stepEl.textContent = steps[idx];
+      }, STEP_MS);
+      // аварийный таймер
+      killer = setTimeout(() => {
+        clearInterval(timer); timer = null;
+        overlay.style.display = 'none';
+        checkBtn.disabled = false;
+        alert('Похоже, анализ занял слишком много времени. Попробуйте ещё раз.');
+      }, MAX_WAIT_MS);
+    }
+    function hideOverlay() {
+      if (timer)  { clearInterval(timer);  timer = null; }
+      if (killer) { clearTimeout(killer); killer = null; }
+      overlay.style.display = 'none';
+      checkBtn.disabled = false;
+    }
+
+    // На всякий случай: после загрузки новой страницы скрыть оверлей
+    window.addEventListener('pageshow', hideOverlay);
+
+    // Перехватываем клик по кнопке «Проверить»
+    checkBtn.addEventListener('click', async (e) => {
+      // если кнопка отключена (нет фото) — выходим
+      if (checkBtn.disabled) return;
+      e.preventDefault(); // не даём обычному сабмиту перезагрузить страницу сам
+      showOverlay();
+
+      try {
+        const fd = new FormData(form);
+        if (thrInput) {
+          const v = parseFloat(thrInput.value);
+          const thr = isNaN(v) ? 0.50 : Math.min(1, Math.max(0, v));
+          fd.set('threshold', thr.toFixed(2));
+        }
+        await fetch(form.action, { method: 'POST', body: fd, credentials: 'same-origin' });
+        // сервер всё сделал (даже если ответ — редирект), теперь грузим обновлённую страницу
+        location.reload();
+      } catch (err) {
+        hideOverlay();
+        alert('Не удалось отправить запрос: ' + err);
+      }
+    }, { passive:false });
+  })();
+</script>
+{% endblock %}

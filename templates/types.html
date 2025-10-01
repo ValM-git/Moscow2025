@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Типы инструментов</h2>
+
+<!-- Поиск + кнопка добавить (модальное окно) -->
+<form method="get" class="card tools-actions" action="{{ url_for('types_list') }}">
+  <div class="actions-row">
+    <div class="search-wrap">
+      <input type="text" name="q" value="{{ q or '' }}" placeholder="Поиск по названию типа…">
+      <button class="btn" type="submit">Найти</button>
+      {% if q %}
+        <a class="btn" href="{{ url_for('types_list') }}">Сброс</a>
+      {% endif %}
+    </div>
+    <div class="add-wrap">
+      <button class="btn" type="button" id="openAdd">+ Добавить тип</button>
+    </div>
+  </div>
+</form>
+
+<!-- Список типов -->
+<div class="grid-list wide-cards">
+  {% for t in types %}
+    <div class="card">
+      <div class="tool">
+        <div class="thumb big">
+          <img src="{{ t.photo_url() }}" alt="{{ t.name }}">
+        </div>
+        <div class="tool-info">
+          <div class="title">{{ t.name }}</div>
+          <div class="muted">Всего: {{ t.total_count }} • Доступно: {{ t.available_count }}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn btn-outline" href="{{ url_for('type_edit', type_id=t.id) }}">Редактировать</a>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% if types|length == 0 %}
+  <p class="muted">Пока нет типов. Добавьте первый.</p>
+{% endif %}
+
+<dialog id="addModal" class="ref-dialog">
+  <form method="post" class="card modal-card" enctype="multipart/form-data" id="typeForm">
+    <h3 class="modal-title">Добавить тип инструмента</h3>
+
+    <div class="grid">
+      <div>
+        <label>Название типа</label>
+        <input type="text" name="name" placeholder="Напр., Отвёртка крестовая" required>
+      </div>
+      <div>
+        <label>Общее фото типа</label>
+        <input type="file" name="type_photo" accept="image/*" required>
+      </div>
+    </div>
+
+    <div class="subtitle" style="margin-top:12px">Экземпляры (минимум один)</div>
+    <div id="itemsContainer" class="items-container">
+    </div>
+    <div class="actions" style="justify-content:flex-start;margin-top:8px">
+      <button class="btn" type="button" onclick="openAddInst()">+ Добавить экземпляр</button>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="button" id="closeAdd">Отмена</button>
+      <button class="btn btn-primary" type="submit" onclick="return validateBeforeSubmit()">Добавить тип</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="addInstModal" class="ref-dialog">
+  <div class="card modal-card">
+    <h3 class="modal-title">Новый экземпляр</h3>
+
+    <div class="grid">
+      <div>
+        <label>Инвентарный номер</label>
+        <input type="text" id="instInv" placeholder="Напр., INV-001">
+      </div>
+      <div>
+        <label>Эталонные фото (можно несколько)</label>
+        <div id="instFilesWrap">
+          <input type="file" id="instFiles" accept="image/*" multiple>
+        </div>
+        <div class="file-note">Можно совместить с камерой ниже</div>
+      </div>
+    </div>
+
+    <div class="subtitle" style="margin-top:8px">Съёмка с камеры</div>
+    <video id="cam_newinst" autoplay playsinline
+           style="width:100%;max-width:420px;border:1px solid #e6e8ef;border-radius:12px"></video>
+    <canvas id="cnv_newinst" style="display:none"></canvas>
+
+    <div class="actions" style="justify-content:flex-start;margin:8px 0">
+      <button class="btn" type="button" onclick="startCam('newinst')">Включить камеру</button>
+      <button class="btn" type="button" onclick="shotCamList('newinst')">Снять кадр</button>
+      <button class="btn" type="button" onclick="clearShots('newinst')">Очистить кадры</button>
+    </div>
+
+    <div class="subtitle">Снятые кадры</div>
+    <div class="ref-thumbs" id="shots_newinst"></div>
+    <div id="shots_inputs_newinst"></div> <!-- временно, потом перенесём -->
+
+    <div class="actions">
+      <button class="btn" type="button" onclick="closeAddInst()">Отмена</button>
+      <button class="btn btn-primary" type="button" onclick="saveInst()">Сохранить экземпляр</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  const addBtn = document.getElementById('openAdd');
+  const closeBtn = document.getElementById('closeAdd');
+  const dlg = document.getElementById('addModal');
+  if (addBtn && dlg) addBtn.addEventListener('click', () => dlg.showModal());
+  if (closeBtn && dlg) closeBtn.addEventListener('click', () => dlg.close());
+
+  const streams = {};
+
+  async function startCam(id){
+    try{
+      if (!streams[id]) {
+        streams[id] = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      }
+      const v = document.getElementById('cam_'+id);
+      if (v) v.srcObject = streams[id];
+    }catch(e){ alert('Камера недоступна: '+e); }
+  }
+  function stopCam(id){
+    const s = streams[id];
+    if (s){ s.getTracks().forEach(t => t.stop()); delete streams[id]; }
+  }
+
+  function shotCamList(id){
+    const v = document.getElementById('cam_'+id);
+    if (!v || !v.videoWidth){ alert('Камера не готова'); return; }
+    const c = document.getElementById('cnv_'+id);
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    const ctx = c.getContext('2d'); ctx.drawImage(v, 0, 0);
+    const dataUrl = c.toDataURL('image/png');
+
+    const shots = document.getElementById('shots_'+id);
+    const holder = document.getElementById('shots_inputs_'+id);
+
+    const div = document.createElement('div');
+    div.className = 'card'; div.style.padding = '6px';
+    div.innerHTML = `<img src="${dataUrl}" style="width:100%;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e6e8ef">`;
+    shots.appendChild(div);
+
+    const input = document.createElement('input');
+    input.type = 'hidden'; input.name = 'data_url[]'; input.value = dataUrl; // временное имя
+    holder.appendChild(input);
+  }
+  function clearShots(id){
+    const shots = document.getElementById('shots_'+id);
+    const holder = document.getElementById('shots_inputs_'+id);
+    if (shots) shots.innerHTML = '';
+    if (holder) holder.innerHTML = '';
+  }
+
+  // --- Добавление экземпляров внутри модалки типа ---
+  const addInstDlg = document.getElementById('addInstModal');
+  const itemsContainer = document.getElementById('itemsContainer');
+  const typeForm = document.getElementById('typeForm');
+
+  function openAddInst(){ addInstDlg.showModal(); }
+  function closeAddInst(){
+    addInstDlg.close();
+    stopCam('newinst');
+    document.getElementById('instInv').value = '';
+    document.getElementById('instFiles').value = '';
+    clearShots('newinst');
+  }
+
+  function saveInst(){
+    const inv = (document.getElementById('instInv').value || '').trim();
+    const filesWrap = document.getElementById('instFilesWrap');
+    const filesInput = document.getElementById('instFiles');
+    const shotsHolder = document.getElementById('shots_inputs_newinst');
+
+    // считаем суммарно: файлы + кадры камеры
+    const filesCount = (filesInput && filesInput.files) ? filesInput.files.length : 0;
+    const shotsCount = shotsHolder.querySelectorAll('input[name="data_url[]"]').length;
+    const total = filesCount + shotsCount;
+
+    if (!inv){
+      alert('Введите инвентарный номер');
+      return;
+    }
+    if (total < 3){
+      alert('Добавьте минимум 3 фото (файлами и/или с камеры)');
+      return;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `
+      <div class="muted">Инв.: <b>${inv}</b></div>
+      <div class="muted" data-count>Фото: ${total}</div>
+      <button class="btn btn-danger item-remove" type="button" onclick="removeRow(this)">×</button>
+    `;
+
+    const invHidden = document.createElement('input');
+    invHidden.type = 'hidden';
+    invHidden.name = 'inv[]';
+    invHidden.value = inv;
+    row.appendChild(invHidden);
+
+    if (filesInput && filesCount > 0){
+      filesInput.name = 'refs_0[]';
+      filesInput.removeAttribute('id');
+
+      const hiddenWrap = document.createElement('div');
+      hiddenWrap.style.display = 'none';
+      hiddenWrap.appendChild(filesInput);
+
+      row.appendChild(hiddenWrap);
+    }
+
+    const newFilesInput = document.createElement('input');
+    newFilesInput.type = 'file';
+    newFilesInput.id = 'instFiles';
+    newFilesInput.multiple = true;
+    newFilesInput.accept = 'image/*';
+    filesWrap.innerHTML = '';
+    filesWrap.appendChild(newFilesInput);
+
+    const dataUrls = shotsHolder.querySelectorAll('input[name="data_url[]"]');
+    dataUrls.forEach(inp => row.appendChild(inp));
+    clearShots('newinst');
+
+    itemsContainer.appendChild(row);
+    reindexRows();
+
+    closeAddInst();
+  }
+
+  function reindexRows(){
+    const rows = itemsContainer.querySelectorAll('.item-row');
+    rows.forEach((row, idx) => {
+      const file = row.querySelector('input[type="file"]');
+      if (file) file.name = `refs_${idx}[]`;
+      const urls = row.querySelectorAll('input[type="hidden"][name="data_url[]"]');
+      urls.forEach(u => u.name = `data_url_${idx}[]`);
+    });
+  }
+
+  function removeRow(btn){
+    const row = btn.closest('.item-row');
+    row.remove();
+    reindexRows();
+  }
+
+  function validateBeforeSubmit(){
+    const count = itemsContainer.querySelectorAll('.item-row').length;
+    if (count === 0){
+      alert('Добавьте минимум один экземпляр');
+      return false;
+    }
+    return true;
+  }
+
+  document.getElementById('addModal').addEventListener('close', () => stopCam('newinst'));
+</script>
+{% endblock %}

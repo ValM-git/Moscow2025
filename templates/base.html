@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Учёт инструмента — прототип</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <div class="brand">Учёт инструмента</div>
+      <nav class="nav">
+        <a href="{{ url_for('types_list') }}" class="btn {% if request.endpoint in ['types_list','type_edit'] %}btn-primary{% else %}btn-outline{% endif %}">Типы инструментов</a>
+        <a href="{{ url_for('new_request') }}" class="btn {% if request.endpoint=='new_request' %}btn-primary{% else %}btn-outline{% endif %}">Создать заявку</a>
+        <a href="{{ url_for('requests_list') }}" class="btn {% if request.endpoint=='requests_list' %}btn-primary{% else %}btn-outline{% endif %}">Заявки</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+          {% for cat, msg in messages %}
+            <div class="flash {{ 'ok' if cat=='ok' else 'error' }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <div class="container">
+      <small></small>
+    </div>
+  </footer>
+</body>
+</html>

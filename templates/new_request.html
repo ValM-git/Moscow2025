@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Создать заявку</h2>
+<form method="post" class="card">
+  <div class="grid-list wide-cards">
+    {% for t in types %}
+      <div class="card">
+        <div class="tool">
+          <div class="thumb big"><img src="{{ t.photo_url() }}" alt="{{ t.name }}"></div>
+          <div class="tool-info">
+            <div class="title">{{ t.name }}</div>
+            <div class="muted">Доступно: {{ t.available_count }} шт.</div>
+          </div>
+        </div>
+        <label>Кол-во (не больше доступного)</label>
+        <input type="number" name="type_{{ t.id }}" min="0" max="{{ t.available_count }}" value="0">
+      </div>
+    {% endfor %}
+  </div>
+  <div class="actions">
+    <button class="btn" type="submit">Создать заявку</button>
+  </div>
+</form>
+{% endblock %}

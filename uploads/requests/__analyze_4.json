@@ -1,0 +1,16 @@
+{
+  "req_id": 4,
+  "ts": 1759318654,
+  "threshold": 0.95,
+  "items": [
+    {
+      "inv": "INV-012",
+      "found": false,
+      "score": null,
+      "photo_annot": null,
+      "photo_id": null,
+      "bbox": null,
+      "user_status": "absent"
+    }
+  ]
+}
